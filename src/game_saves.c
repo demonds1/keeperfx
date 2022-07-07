@@ -32,6 +32,7 @@
 #include "custom_sprites.h"
 #include "front_simple.h"
 #include "frontend.h"
+#include "frontmenu_ingame_tabs.h"
 #include "front_landview.h"
 #include "front_highscore.h"
 #include "front_lvlstats.h"
@@ -40,6 +41,7 @@
 #include "game_legacy.h"
 #include "game_merge.h"
 #include "frontmenu_ingame_map.h"
+#include "gui_boxmenu.h"
 #include "keeperfx.hpp"
 
 #ifdef __cplusplus
@@ -202,11 +204,11 @@ int load_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
                     return GLoad_Failed;
                 }
                 // Load configs which may have per-campaign part, and even be modified within a level
+                init_custom_sprites(centry->level_num);
                 load_computer_player_config(CnfLd_Standard);
                 load_stats_files();
                 check_and_auto_fix_stats();
                 init_creature_scores();
-                // Update interface items
                 strncpy(high_score_entry,centry->player_name,PLAYER_NAME_LENGTH);
             }
             break;
@@ -288,7 +290,11 @@ int load_game_chunks(TbFileHandle fhandle,struct CatalogueEntry *centry)
         }
     }
     if ((chunks_done & SGF_SavedGame) == SGF_SavedGame)
+    {
+        // Update interface items
+        update_trap_tab_to_config();
         return GLoad_SavedGame;
+    }
     return GLoad_Failed;
 }
 
@@ -402,7 +408,6 @@ TbBool load_game(long slot_num)
         init_lookups();
         return false;
     }
-    init_custom_sprites(get_selected_level_number());
     my_player_number = game.local_plyr_idx;
     LbFileClose(fh);
     LbStringCopy(game.campaign_fname,campaign.fname,sizeof(game.campaign_fname));
@@ -430,6 +435,7 @@ TbBool load_game(long slot_num)
       dungeon->lvstats.allow_save_score = 1;
     }
     game.loaded_swipe_idx = -1;
+    JUSTMSG("Loaded level %d from %s", game.continue_level_number, campaign.name);
     return true;
 }
 
@@ -652,24 +658,36 @@ short load_continue_game(void)
         sizeof(struct IntralevelData));
     LbStringCopy(game.campaign_fname,campaign.fname,sizeof(game.campaign_fname));
     update_extra_levels_visibility();
+    JUSTMSG("Continued level %d from %s", lvnum, campaign.name);
     return true;
 }
 
-TbBool set_transfered_creature(PlayerNumber plyr_idx, ThingModel model, long explevel)
+TbBool add_transfered_creature(PlayerNumber plyr_idx, ThingModel model, long explevel)
 {
-    if (is_my_player_number(plyr_idx))
+    struct DungeonAdd* dungeonadd = get_dungeonadd(plyr_idx);
+    if (dungeonadd == INVALID_DUNGEON_ADD)
     {
-        intralvl.transferred_creature.model = model;
-        intralvl.transferred_creature.explevel = explevel;
-        return true;
+        ERRORDBG(11, "Can't transfer creature; player %d has no dungeon.", (int)plyr_idx);
+        return false;
     }
-    return false;
+
+    short i = dungeonadd->creatures_transferred; //makes sure it fits 255 units
+    
+    intralvl.transferred_creatures[plyr_idx][i].model = model;
+    intralvl.transferred_creatures[plyr_idx][i].explevel = explevel;
+    return true;
 }
 
-void clear_transfered_creature(void)
+void clear_transfered_creatures(void)
 {
-    intralvl.transferred_creature.model = 0;
-    intralvl.transferred_creature.explevel = 0;
+    for (int p = 0; p < PLAYERS_COUNT; p++)
+    {
+        for (int i = 0; i < TRANSFER_CREATURE_STORAGE_COUNT; i++)
+        {
+            intralvl.transferred_creatures[p][i].model = 0;
+            intralvl.transferred_creatures[p][i].explevel = 0;
+        }
+    }
 }
 
 LevelNumber move_campaign_to_next_level(void)

@@ -317,7 +317,7 @@ msgstr "邪恶的死灵法师将这个王国变得死气沉沉。召集当地人
 #. Misty Bog (lv5)
 #: guitext:48
 msgctxt "In-game message"
-msgid "The Necromancer you oppose has created phylactery to protect himself from death. It will be probably difficult to defeat him once and for all?"
+msgid "The Necromancer you oppose has created phylacteries to protect himself from death. It will probably be difficult to defeat him once and for all?"
 msgstr "你的对手，死灵法师，创造了一种魔法护符来保护自己免受死亡之灾。要彻底打败他可能会很困难。"
 
 #. Misty Bog (lv5)
@@ -1637,10 +1637,15 @@ msgstr "任务失败 - 按ESCAPE键重新开始"
 #: guitext:397 guitext:398 guitext:399 guitext:400 guitext:401 guitext:402
 #: guitext:403 guitext:404 guitext:405 guitext:406 guitext:407 guitext:408
 #: guitext:409 guitext:410 guitext:411 guitext:412 guitext:413 guitext:414
-#: guitext:415 guitext:416 guitext:417 guitext:418 guitext:419
+#: guitext:415 guitext:416 guitext:417 guitext:418
 msgctxt "Unused"
 msgid "Moo5"
 msgstr ""
+
+#: guitext:419
+msgctxt "Menu interface item"
+msgid "Ok"
+msgstr "确定"
 
 #: guitext:420
 msgctxt "Dungeon special description"

@@ -105,7 +105,7 @@ TbBool create_workshop_object_in_workshop_room(PlayerNumber plyr_idx, ThingClass
         ERRORLOG("Could not create workshop crate thing for %s",thing_class_code_name(tngclass));
         return false;
     }
-    struct Room* room = find_random_room_for_thing_with_spare_room_item_capacity(cratetng, plyr_idx, RoK_WORKSHOP, 0);
+    struct Room* room = find_random_room_of_role_for_thing_with_spare_room_item_capacity(cratetng, plyr_idx, RoRoF_CratesStorage, 0);
     if (room_is_invalid(room))
     {
         ERRORLOG("No %s room found which would accept %s crate",room_code_name(RoK_WORKSHOP),thing_class_code_name(tngclass));
@@ -517,8 +517,8 @@ long get_doable_manufacture_with_minimal_amount_available(const struct Dungeon *
     long amount;
     int chosen_class = TCls_Empty;
     int chosen_kind = 0;
-    int chosen_amount = LONG_MAX;
-    int chosen_level = LONG_MAX;
+    int chosen_amount = INT_MAX;
+    int chosen_level = INT_MAX;
     struct DungeonAdd* dungeonadd = get_dungeonadd(dungeon->owner);
 
     // Try getting door kind for manufacture
@@ -619,15 +619,18 @@ short process_player_manufacturing(PlayerNumber plyr_idx)
     }
     if (dungeon->manufacture_class == TCls_Empty)
     {
-        get_next_manufacture(dungeon);
-        return true;
+        if (get_next_manufacture(dungeon))
+        {
+            return true;
+        }
+        return false;
     }
     int k = manufacture_points_required(dungeon->manufacture_class, dungeon->manufacture_kind);
     // If we don't have enough manufacture points, don't do anything
     if (dungeon->manufacture_progress < (k << 8))
         return true;
     // Try to do the manufacturing
-    struct Room* room = find_room_with_spare_room_item_capacity(plyr_idx, RoK_WORKSHOP);
+    struct Room* room = find_room_of_role_with_spare_room_item_capacity(plyr_idx, RoRoF_CratesStorage);
     if (room_is_invalid(room))
     {
         dungeon->manufacture_class = TCls_Empty;
@@ -668,13 +671,18 @@ short process_player_manufacturing(PlayerNumber plyr_idx)
     dungeon->manufacture_progress -= (k << 8);
     dungeon->field_118B = game.play_gameturn;
     dungeon->lvstats.manufactured_items++;
-    get_next_manufacture(dungeon);
-    return true;
+    if (get_next_manufacture(dungeon))
+    {
+        return true;
+    }
+    dungeon->manufacture_class = TCls_Empty;
+    return false;
 }
 
 EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thing *picktng)
 {
     EventIndex evidx;
+    struct PlayerInfo* player;
     ThingClass tngclass = crate_thing_to_workshop_item_class(picktng);
     if (tngclass == TCls_Trap)
     {
@@ -689,7 +697,11 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
             {
                 if (picktng->owner != game.neutral_player_num)
                 {
-                    output_message(SMsg_TrapTaken, 0, true);
+                    player = get_my_player();
+                    if (creatng->index != player->influenced_thing_idx)
+                    {
+                        output_message(SMsg_TrapTaken, 0, true);
+                    }
                 }
             }
     } else if (tngclass == TCls_Door)
@@ -705,7 +717,11 @@ EventIndex update_workshop_object_pickup_event(struct Thing *creatng, struct Thi
             {
                 if (picktng->owner != game.neutral_player_num)
                 {
-                    output_message(SMsg_DoorTaken, 0, true);
+                    player = get_my_player();
+                    if (creatng->index != player->influenced_thing_idx)
+                    {
+                        output_message(SMsg_DoorTaken, 0, true);
+                    }
                 }
             }
     } else

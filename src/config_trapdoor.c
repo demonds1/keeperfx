@@ -30,6 +30,7 @@
 #include "player_instances.h"
 #include "player_states.h"
 #include "game_legacy.h"
+#include "custom_sprites.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,7 +48,7 @@ const struct NamedCommand trapdoor_door_commands[] = {
   {"NAME",                  1},
   {"MANUFACTURELEVEL",      2},
   {"MANUFACTUREREQUIRED",   3},
-  {"UNUSEDUNUSED",          4},// replace by any command later; this is just to keep same indexing below
+  {"SLABKIND",              4},
   {"HEALTH",                5},
   {"SELLINGVALUE",          6},
   {"NAMETEXTID",            7},
@@ -56,6 +57,7 @@ const struct NamedCommand trapdoor_door_commands[] = {
   {"SYMBOLSPRITES",        10},
   {"POINTERSPRITES",       11},
   {"PANELTABINDEX",        12},
+  {"OPENSPEED",            13},
   {NULL,                    0},
 };
 
@@ -426,7 +428,8 @@ TbBool parse_trapdoor_trap_blocks(char *buf, long len, const char *config_textna
       case 10: // SYMBOLSPRITES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              k = atoi(word_buf);
+              trapst->bigsym_sprite_idx = bad_icon_id;
+              k = get_icon_id(word_buf);
               if (k >= 0)
               {
                   trapst->bigsym_sprite_idx = k;
@@ -435,7 +438,8 @@ TbBool parse_trapdoor_trap_blocks(char *buf, long len, const char *config_textna
           }
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              k = atoi(word_buf);
+              trapst->medsym_sprite_idx = bad_icon_id;
+              k = get_icon_id(word_buf);
               if (k >= 0)
               {
                   trapst->medsym_sprite_idx = k;
@@ -451,7 +455,7 @@ TbBool parse_trapdoor_trap_blocks(char *buf, long len, const char *config_textna
       case 11: // POINTERSPRITES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              k = atoi(word_buf);
+              k = get_icon_id(word_buf);
               if (k >= 0)
               {
                   trapst->pointer_sprite_idx = k;
@@ -460,6 +464,7 @@ TbBool parse_trapdoor_trap_blocks(char *buf, long len, const char *config_textna
           }
           if (n < 1)
           {
+            trapst->pointer_sprite_idx = bad_icon_id;
             CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
                 COMMAND_TEXT(cmd_num),block_buf,config_textname);
           }
@@ -531,7 +536,8 @@ TbBool parse_trapdoor_trap_blocks(char *buf, long len, const char *config_textna
       case 16: // MODEL
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-            k = atoi(word_buf);
+            struct Objects obj_tmp;
+            k = get_anim_id(word_buf, &obj_tmp);
             if (k >= 0)
             {
                 gameadd.trap_stats[i].sprite_anim_idx = k;
@@ -759,16 +765,45 @@ TbBool parse_trapdoor_door_blocks(char *buf, long len, const char *config_textna
                 COMMAND_TEXT(cmd_num),block_buf,config_textname);
           }
           break;
+      case 4: // SLABKIND
+          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+          {
+              k = get_id(slab_desc, word_buf);
+              doorst->slbkind[1] = k;
+              n++;
+          }
+          else
+          {
+              CONFWRNLOG("Incorrect slab name \"%s\" in [%s] block of %s file.",
+                  word_buf, block_buf, config_textname);
+              break;
+          }
+          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+          {
+              k = get_id(slab_desc, word_buf);
+              doorst->slbkind[0] = k;
+              n++;
+          }
+          else
+          {
+              CONFWRNLOG("Incorrect slab name \"%s\" in [%s] block of %s file.",
+                  word_buf, block_buf, config_textname);
+          }
+          if (n < 2)
+          {
+              CONFWRNLOG("Couldn't read \"%s\" parameter in [%s] block of %s file.",
+                  COMMAND_TEXT(cmd_num), block_buf, config_textname);
+              break;
+          }
+          break;
       case 5: // HEALTH
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
             k = atoi(word_buf);
-            if (i < DOOR_TYPES_COUNT)
+            if (i < gameadd.trapdoor_conf.door_types_count)
             {
-              door_stats[i][0].health = k;
-              door_stats[i][1].health = k;
+              doorst->health = k;
             }
-            //TODO: set stats
             n++;
           }
           if (n < 1)
@@ -840,7 +875,8 @@ TbBool parse_trapdoor_door_blocks(char *buf, long len, const char *config_textna
       case 10: // SYMBOLSPRITES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              k = atoi(word_buf);
+              doorst->bigsym_sprite_idx = bad_icon_id;
+              k = get_icon_id(word_buf);
               if (k >= 0)
               {
                   doorst->bigsym_sprite_idx = k;
@@ -849,7 +885,8 @@ TbBool parse_trapdoor_door_blocks(char *buf, long len, const char *config_textna
           }
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              k = atoi(word_buf);
+              doorst->medsym_sprite_idx = bad_icon_id;
+              k = get_icon_id(word_buf);
               if (k >= 0)
               {
                   doorst->medsym_sprite_idx = k;
@@ -865,7 +902,7 @@ TbBool parse_trapdoor_door_blocks(char *buf, long len, const char *config_textna
       case 11: // POINTERSPRITES
           if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
           {
-              k = atoi(word_buf);
+              k = get_icon_id(word_buf);
               if (k >= 0)
               {
                   doorst->pointer_sprite_idx = k;
@@ -874,6 +911,7 @@ TbBool parse_trapdoor_door_blocks(char *buf, long len, const char *config_textna
           }
           if (n < 1)
           {
+            doorst->pointer_sprite_idx = bad_icon_id;
             CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
                 COMMAND_TEXT(cmd_num),block_buf,config_textname);
           }
@@ -885,6 +923,22 @@ TbBool parse_trapdoor_door_blocks(char *buf, long len, const char *config_textna
             if (k >= 0)
             {
                 doorst->panel_tab_idx = k;
+                n++;
+            }
+          }
+          if (n < 1)
+          {
+            CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
+                COMMAND_TEXT(cmd_num),block_buf,config_textname);
+          }
+          break;
+          case 13: // OPENSPEED
+          if (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
+          {
+            k = atoi(word_buf);
+            if (k >= 0)
+            {
+                doorst->open_speed = k;
                 n++;
             }
           }
@@ -1258,6 +1312,50 @@ TbBool is_door_built(PlayerNumber plyr_idx, long door_idx)
         return true;
     }
     return false;
+}
+
+/**
+ * Makes all door types manufacturable.
+ */
+TbBool make_available_all_doors(PlayerNumber plyr_idx)
+{
+  SYNCDBG(0,"Starting");
+  struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
+  if (dungeon_invalid(dungeon)) {
+      ERRORDBG(11,"Cannot make doors available; player %d has no dungeon",(int)plyr_idx);
+      return false;
+  }
+  for (long i = 1; i < gameadd.trapdoor_conf.door_types_count; i++)
+  {
+    if (!set_door_buildable_and_add_to_amount(plyr_idx, i, 1, 0))
+    {
+        ERRORLOG("Could not make door %s available for player %d", door_code_name(i), plyr_idx);
+        return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Makes all trap types manufacturable.
+ */
+TbBool make_available_all_traps(PlayerNumber plyr_idx)
+{
+  SYNCDBG(0,"Starting");
+  struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
+  if (dungeon_invalid(dungeon)) {
+      ERRORDBG(11,"Cannot make traps available; player %d has no dungeon",(int)plyr_idx);
+      return false;
+  }
+  for (long i = 1; i < gameadd.trapdoor_conf.trap_types_count; i++)
+  {
+    if (!set_trap_buildable_and_add_to_amount(plyr_idx, i, 1, 0))
+    {
+        ERRORLOG("Could not make trap %s available for player %d", trap_code_name(i), plyr_idx);
+        return false;
+    }
+  }
+  return true;
 }
 
 /******************************************************************************/

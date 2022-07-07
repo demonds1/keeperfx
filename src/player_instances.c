@@ -472,7 +472,10 @@ long pinstfe_passenger_control_creature(struct PlayerInfo *player, long *n)
 {
     struct Thing* thing = thing_get(player->influenced_thing_idx);
     if (!thing_is_invalid(thing))
-      control_creature_as_passenger(player, thing);
+    {
+        load_swipe_graphic_for_creature(thing);
+        control_creature_as_passenger(player, thing);
+    }
     set_player_instance(player, PI_CrCtrlFade, false);
     return 0;
 }
@@ -534,6 +537,7 @@ long pinstfs_passenger_leave_creature(struct PlayerInfo *player, long *n)
     player->palette_fade_step_possession = 11;
     turn_off_all_window_menus();
     turn_off_query_menus();
+    turn_off_all_panel_menus();
     turn_on_main_panel_menu();
     set_flag_byte(&game.operation_flags, GOF_ShowPanel, (game.operation_flags & GOF_ShowGui) != 0);
   }
@@ -1133,7 +1137,7 @@ struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Play
 {
     struct PlayerInfo* player = get_player(plyr_idx);
     struct Dungeon* dungeon = get_players_dungeon(player);
-    struct RoomStats* rstat = room_stats_get_for_kind(rkind);
+    struct RoomConfigStats* roomst = get_room_kind_stats(rkind);
     // Check if we are allowed to build the room
     if (!is_room_available(plyr_idx, rkind)) {
         // It shouldn't be possible to select unavailable room
@@ -1147,7 +1151,13 @@ struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Play
         WARNLOG("Player %d tried to build %s on a forbidden subtile (%d,%d)",(int)plyr_idx,
             room_code_name(rkind),(int)stl_x,(int)stl_y);
         if (is_my_player(player))
-            play_non_3d_sample(119);
+        {
+            struct PlayerInfoAdd* playeradd = get_playeradd(plyr_idx);
+            if (!playeradd->roomspace.is_active)
+            {
+                play_non_3d_sample(119);
+            }
+        }
         return INVALID_ROOM;
     }
     // Check if there's a place for new room
@@ -1161,9 +1171,9 @@ struct Room *player_build_room_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, Play
     {
         player->boxsize++;
     }
-    if (dungeon->total_money_owned >= rstat->cost * player->boxsize)
+    if (dungeon->total_money_owned >= roomst->cost * player->boxsize)
     {
-        if (take_money_from_dungeon(plyr_idx, rstat->cost, 1) < 0)
+        if (take_money_from_dungeon(plyr_idx, roomst->cost, 1) < 0)
         {
             if (is_my_player(player))
                 output_message(SMsg_GoldNotEnough, 0, true);
@@ -1271,5 +1281,86 @@ TbBool player_place_door_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
         play_non_3d_sample(117);
     }
     return 1;
+}
+
+TbBool is_thing_directly_controlled_by_player(const struct Thing *thing, PlayerNumber plyr_idx)
+{
+    if (!thing_exists(thing))
+        return false;
+     struct PlayerInfo* player = get_player(plyr_idx);
+     if (player_invalid(player))
+     {
+         ERRORLOG("Bad player: $d", plyr_idx);
+         return false;
+     }
+     else
+     {
+        if ((player->work_state != PSt_CtrlDirect) && (player->work_state != PSt_FreeCtrlDirect) && (player->work_state != PSt_CtrlDungeon))
+        {
+            return false;
+        }
+        switch (player->instance_num)
+        {
+            case PI_DirctCtrl:
+            case PI_HeartZoom:
+            case PI_HeartZoomOut:
+            case PI_Drop:
+            {
+                if ((thing->alloc_flags & TAlF_IsControlled) != 0)
+                {
+                    if (player->view_type == PVT_CreatureContrl)
+                    {
+                        return ( (thing->index == player->influenced_thing_idx) || (get_creature_model_flags(thing) & CMF_IsSpectator) );
+                    }
+                }
+                return false;
+            }
+            case PI_CrCtrlFade:
+                return (thing->index == player->controlled_thing_idx);
+            case PI_DirctCtLeave:
+                return (thing->index == player->influenced_thing_idx);
+            case PI_Unset:
+            case PI_Whip: // Whip can be used at any time by comp. assistant
+            case PI_WhipEnd:
+                return (thing->index == player->controlled_thing_idx);
+            case PI_PsngrCtLeave: // Leaving the possessed creature
+                break;
+        }
+     }
+    return false;
+}
+
+TbBool is_thing_passenger_controlled_by_player(const struct Thing *thing, PlayerNumber plyr_idx)
+{
+    if (!thing_exists(thing))
+        return false;
+     struct PlayerInfo* player = get_player(plyr_idx);
+     if (player_invalid(player))
+     {
+         ERRORLOG("Bad player: $d", plyr_idx);
+         return false;
+     }
+    else
+    {
+        if ((player->work_state != PSt_CtrlPassngr) && (player->work_state != PSt_FreeCtrlPassngr))
+            return false;
+        switch (player->instance_num)
+        {
+        case PI_PsngrCtrl:
+            return ( (thing->index == player->influenced_thing_idx) && (player->view_type == PVT_CreaturePasngr) );
+        case PI_CrCtrlFade:
+            return (thing->index == player->controlled_thing_idx);
+        case PI_PsngrCtLeave:
+            return (thing->index == player->influenced_thing_idx);
+        case PI_Unset:
+        case PI_Whip: // Whip can be used at any time by comp. assistant
+        case PI_WhipEnd:
+            return (thing->index == player->controlled_thing_idx);
+        default:
+            ERRORLOG("Bad player %d instance %d",plyr_idx,(int)player->instance_num);
+            break;
+        }
+    }
+    return false;
 }
 /******************************************************************************/

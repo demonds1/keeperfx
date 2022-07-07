@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "room_data.h"
 
 #include "config.h"
 
@@ -55,6 +56,12 @@ enum SlabAttrFlags {
     SlbAtFlg_Filled = 0x20,
     SlbAtFlg_IsDoor = 0x40,
     SlbAtFlg_TaggedValuable = 0x80,
+};
+
+enum SlabFillStyle {
+    SlbFillStl_Normal = 0,
+    SlbFillStl_Lava = 1,
+    SlbFillStl_Water = 2,
 };
 
 enum RoomCfgFlags {
@@ -140,6 +147,11 @@ struct RoomConfigStats {
     long msg_needed;
     long msg_too_small;
     long msg_no_route;
+    short cost;
+    unsigned short health;
+    Room_Update_Func update_total_capacity;
+    Room_Update_Func update_storage_in_room;
+    Room_Update_Func update_workers_in_room;
 };
 
 struct SlabsConfig {
@@ -167,6 +179,7 @@ const char *slab_code_name(SlabKind slbkind);
 /******************************************************************************/
 TbBool slab_kind_is_indestructible(RoomKind slbkind);
 TbBool slab_kind_is_fortified_wall(RoomKind slbkind);
+TbBool slab_kind_is_room_wall(RoomKind slbkind);
 TbBool slab_kind_is_friable_dirt(RoomKind slbkind);
 TbBool slab_kind_is_door(SlabKind slbkind);
 TbBool slab_kind_is_nonmagic_door(SlabKind slbkind);
@@ -179,6 +192,7 @@ TbBool set_room_available(PlayerNumber plyr_idx, RoomKind room_idx, long resrch,
 TbBool make_available_all_researchable_rooms(PlayerNumber plyr_idx);
 TbBool make_all_rooms_researchable(PlayerNumber plyr_idx);
 TbBool is_room_available(PlayerNumber plyr_idx, RoomKind room_idx);
+TbBool is_room_of_role_available(PlayerNumber plyr_idx, RoomRole rrole);
 ThingModel get_room_create_creature_model(RoomKind room_kind);
 TbBool enemies_may_work_in_room(RoomKind rkind);
 RoomRole get_room_roles(RoomKind rkind);
@@ -189,6 +203,7 @@ TbBool room_never_buildable(RoomKind rkind);
 TbBool room_can_have_ensign(RoomKind rkind);
 SlabKind room_corresponding_slab(RoomKind rkind);
 RoomKind slab_corresponding_room(SlabKind slbkind);
+RoomKind find_first_roomkind_with_role(RoomRole rrole);
 /******************************************************************************/
 #ifdef __cplusplus
 }
